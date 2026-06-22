@@ -28,7 +28,7 @@ data class RestaurantTable(
 )
 
 @Serializable
-@JsonIgnoreUnknownKeys
+//@JsonIgnoreUnknownKeys
 data class MenuCategory(
     val id: String,
     val name: String,
@@ -38,7 +38,7 @@ data class MenuCategory(
 )
 
 @Serializable
-@JsonIgnoreUnknownKeys
+//@JsonIgnoreUnknownKeys
 data class MenuItem(
     val id: String,
     @SerialName("category_id") val categoryId: String? = null,
@@ -47,7 +47,11 @@ data class MenuItem(
     @SerialName("cooking_time") val cookingTime: Int = 0,
     @SerialName("is_available") val isAvailable: Boolean = true,
     @SerialName("sort_order") val sortOrder: Int = 0,
-    @SerialName("is_active") val isActive: Boolean = true
+    @SerialName("is_active") val isActive: Boolean = true,
+    @SerialName("container_charge") val containerCharge: Int = 0,
+    @SerialName("outlet_id") val outletId: String,
+    @SerialName("search_key") val searchKey: String = ""
+
 )
 
 @Serializable

@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +29,7 @@ private fun money(v: Double) = CURRENCY + String.format("%.2f", v)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrderScreen(tableId: String, onBack: () -> Unit) {
+fun OrderScreen(tableId: String, onBack: () -> Unit, onViewOrder: () -> Unit) {
     val vm: OrderViewModel = viewModel(
         factory = viewModelFactory { initializer { OrderViewModel(tableId) } }
     )
@@ -100,29 +102,19 @@ fun OrderScreen(tableId: String, onBack: () -> Unit) {
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                    if (vm.existing.isNotEmpty()) {
-                        Text(
-                            "Already ordered: ${money(vm.existingSubtotal)}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Total", fontWeight = FontWeight.SemiBold)
-                        Text(money(vm.total), fontWeight = FontWeight.Bold)
+                        Text("Items ${vm.cartCount}", fontWeight = FontWeight.SemiBold)
+                        Text("Total ${money(vm.total)}", fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(8.dp))
                     Button(
-                        onClick = { vm.confirm(onDone = onBack) },
-                        enabled = vm.cart.isNotEmpty() && !vm.confirming && !vm.working,
+                        onClick = onViewOrder,
+                        enabled = vm.cart.isNotEmpty() || vm.existing.isNotEmpty(),
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (vm.confirming)
-                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Text("Confirm order")
-                    }
+                    ) { Text("View order") }
                     if (vm.hasActiveOrder) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
@@ -146,8 +138,27 @@ fun OrderScreen(tableId: String, onBack: () -> Unit) {
             when {
                 vm.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 else -> Column(Modifier.fillMaxSize()) {
-                    val selectedIndex = vm.categories.indexOfFirst { it.id == vm.selectedCategory }
-                    if (vm.categories.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = vm.searchQuery,
+                        onValueChange = { vm.searchQuery = it },
+                        placeholder = { Text("Search menu") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (vm.isSearching) {
+                                IconButton(onClick = { vm.searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear search")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+
+                    // Category tabs only matter when not searching (search spans all categories).
+                    if (!vm.isSearching && vm.categories.isNotEmpty()) {
+                        val selectedIndex = vm.categories.indexOfFirst { it.id == vm.selectedCategory }
                         ScrollableTabRow(
                             selectedTabIndex = selectedIndex.coerceAtLeast(0),
                             edgePadding = 12.dp
@@ -161,12 +172,24 @@ fun OrderScreen(tableId: String, onBack: () -> Unit) {
                             }
                         }
                     }
-                    LazyColumn(Modifier.weight(1f)) {
-                        items(vm.visibleItems(), key = { it.id }) { item ->
-                            MenuRow(item, vm.qtyOf(item.id), { vm.add(item) }, { vm.remove(item) })
-                            HorizontalDivider()
+
+                    val shown = vm.visibleItems()
+                    if (shown.isEmpty() && vm.isSearching) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                "No items match \"${vm.searchQuery.trim()}\"",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        LazyColumn(Modifier.weight(1f)) {
+                            items(shown, key = { it.id }) { item ->
+                                MenuRow(item, vm.qtyOf(item.id), { vm.add(item) }, { vm.remove(item) })
+                                HorizontalDivider()
+                            }
                         }
                     }
+
                     vm.error?.let {
                         Text(
                             "Error: $it",

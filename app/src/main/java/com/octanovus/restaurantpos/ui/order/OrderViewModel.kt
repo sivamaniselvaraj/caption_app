@@ -16,7 +16,7 @@ import com.octanovus.restaurantpos.data.RestaurantTable
 import com.octanovus.restaurantpos.data.TablesRepository
 import kotlinx.coroutines.launch
 
-const val TAX_RATE = 0.0   // e.g. 0.05 for 5%
+const val TAX_RATE = 0.05   // e.g. 0.05 for 5%
 const val CURRENCY = "₹"
 
 data class CartLine(val item: MenuItem, val qty: Int)
@@ -32,6 +32,7 @@ class OrderViewModel(
     var categories by mutableStateOf<List<MenuCategory>>(emptyList()); private set
     var menu by mutableStateOf<List<MenuItem>>(emptyList()); private set
     var selectedCategory by mutableStateOf<String?>(null)
+    var searchQuery by mutableStateOf("")
     var existing by mutableStateOf<List<OrderItem>>(emptyList()); private set
     var cart by mutableStateOf<Map<String, CartLine>>(emptyMap()); private set
     var loading by mutableStateOf(true); private set
@@ -65,7 +66,17 @@ class OrderViewModel(
         }
     }
 
-    fun visibleItems(): List<MenuItem> = menu.filter { it.categoryId == selectedCategory }
+    val isSearching get() = searchQuery.isNotBlank()
+
+    /**
+     * When a search term is present, match item names across ALL categories;
+     * otherwise show the items in the selected category tab.
+     */
+    fun visibleItems(): List<MenuItem> {
+        val q = searchQuery.trim()
+        return if (q.isBlank()) menu.filter { it.categoryId == selectedCategory }
+        else menu.filter { it.name.contains(q, ignoreCase = true) || it.searchKey.contains(q, ignoreCase = true)}
+    }
     fun qtyOf(id: String) = cart[id]?.qty ?: 0
 
     fun add(item: MenuItem) {
@@ -79,6 +90,7 @@ class OrderViewModel(
 
     val existingSubtotal get() = existing.sumOf { it.unitPrice * it.quantity }
     val cartSubtotal get() = cart.values.sumOf { it.item.price * it.qty }
+    val cartCount get() = cart.values.sumOf { it.qty }
     val subtotal get() = existingSubtotal + cartSubtotal
     val tax get() = subtotal * TAX_RATE
     val total get() = subtotal + tax

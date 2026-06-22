@@ -19,7 +19,7 @@ class TablesViewModel(
 
     init {
         load()
-        observeRealtime()
+        //observeRealtime() //uncomment for realtime sync
     }
 
     fun load() = viewModelScope.launch {

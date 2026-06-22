@@ -11,9 +11,9 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 
 class TablesRepository {
-
+    private val pg get() = Supabase.client.postgrest
     suspend fun getTables(): List<RestaurantTable> =
-        Supabase.client.postgrest.from("tables")
+        pg.from("tables")
             .select(Columns.list("id", "table_number", "capacity",  "outlet_id", "floor_area", "status"))
             {filter  { eq("outlet_id", Session.profile?.outletId ?: "") } }
             .decodeList<RestaurantTable>()
