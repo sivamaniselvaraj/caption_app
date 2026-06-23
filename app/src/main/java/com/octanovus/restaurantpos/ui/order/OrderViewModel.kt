@@ -13,6 +13,7 @@ import com.octanovus.restaurantpos.data.NewOrderItem
 import com.octanovus.restaurantpos.data.OrderItem
 import com.octanovus.restaurantpos.data.OrdersRepository
 import com.octanovus.restaurantpos.data.RestaurantTable
+import com.octanovus.restaurantpos.data.Session
 import com.octanovus.restaurantpos.data.TablesRepository
 import kotlinx.coroutines.launch
 
@@ -100,10 +101,11 @@ class OrderViewModel(
         if (cart.isEmpty()) { onDone(); return@launch }
         confirming = true; error = null
         try {
+            val orderNumber = ordersRepo.getOrderNumber(Session.profile?.outletId)
             val id = orderId
-                ?: ordersRepo.createOrder(tableId, auth.currentUserId).also { orderId = it.id }.id
+                ?: ordersRepo.createOrder(tableId, orderNumber, auth.currentUserId).also { orderId = it.id }.id
             val newItems = cart.values.map {
-                NewOrderItem(id, it.item.id, it.item.name, it.item.price, it.qty)
+                NewOrderItem(id, it.item.id, it.item.name, it.item.price, it.qty, totalPrice = it.qty * it.item.price)
             }
             ordersRepo.addItems(newItems)
             ordersRepo.confirm(id, tableId, subtotal, tax, total)
@@ -111,7 +113,9 @@ class OrderViewModel(
             existing = existing + cart.values.map {
                 OrderItem(
                     id = "tmp-${it.item.id}", orderId = id,
-                    name = it.item.name, unitPrice = it.item.price, quantity = it.qty
+                    menuItemsId = it.item.id,
+                    name = it.item.name, unitPrice = it.item.price, quantity = it.qty,
+                    totalPrice = it.qty * it.item.price,
                 )
             }
             cart = emptyMap()

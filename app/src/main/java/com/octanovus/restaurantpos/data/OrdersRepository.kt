@@ -1,6 +1,9 @@
 package com.octanovus.restaurantpos.data
 
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.request.RpcRequestBuilder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.OffsetDateTime
@@ -21,13 +24,17 @@ class OrdersRepository {
             filter { eq("order_id", orderId) }
         }.decodeList()
 
-    suspend fun createOrder(tableId: String, userId: String?): Order =
+    suspend fun createOrder(tableId: String, orderNumber: String, userId: String?): Order =
         pg.from("orders")
-            .insert(NewOrder(tableId = tableId, createdBy = userId)) { select() }
+            .insert(NewOrder(tableId = tableId, orderNumber = orderNumber, createdBy = userId, outletId = Session.profile?.outletId, createdAt = OffsetDateTime.now().toString())) { select() }
             .decodeSingle()
 
     suspend fun addItems(items: List<NewOrderItem>) {
         if (items.isNotEmpty()) pg.from("order_items").insert(items)
+    }
+
+    suspend fun getOrderNumber(outletId: String?): String {
+        return pg.rpc("get_next_order_number", buildJsonObject{put("p_outlet_id", outletId)}).data
     }
 
     suspend fun confirm(
@@ -40,9 +47,9 @@ class OrdersRepository {
         pg.from("orders").update({
             set("status", "confirmed")
             set("subtotal", subtotal)
-            set("tax", tax)
+            set("tax_amount", tax)
             set("total", total)
-            set("confirmed_at", OffsetDateTime.now().toString())
+            set("updated_at", OffsetDateTime.now().toString())
         }) { filter { eq("id", orderId) } }
 
         pg.from("restaurant_tables").update({

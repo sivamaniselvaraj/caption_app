@@ -2,7 +2,7 @@ package com.octanovus.restaurantpos.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonIgnoreUnknownKeys
+import java.util.Date
 
 // ---- Read models ----
 
@@ -57,6 +57,14 @@ data class MenuItem(
 @Serializable
 data class Order(
     val id: String,
+    @SerialName("outlet_id") val outletId: String,
+    @SerialName("order_type") val orderType: String = "dine_in",
+    @SerialName("order_number") val orderNumber: String,
+    val subtotal: Double = 0.0,
+    @SerialName("tax_amount") val taxAmount : Double = 0.0,
+    @SerialName("waiter_id") val waiterId: String,
+    @SerialName("created_at") val createdAt: String = Date().toString(),
+    @SerialName("updated_at") val updatedAt: String = Date().toString(),
     @SerialName("table_id") val tableId: String,
     val status: String,
     val total: Double = 0.0
@@ -67,26 +75,33 @@ data class OrderItem(
     val id: String,
     @SerialName("order_id") val orderId: String,
     val name: String,
+    @SerialName("menu_item_id") val menuItemsId: String,
     @SerialName("unit_price") val unitPrice: Double,
+    @SerialName("total_price") val totalPrice: Double,
     val quantity: Int,
     val notes: String? = null
 )
 
 // ---- Insert DTOs (omit DB-generated columns) ----
 
+
 @Serializable
 data class NewOrder(
     @SerialName("table_id") val tableId: String,
-    @SerialName("created_by") val createdBy: String? = null,
+    @SerialName("order_number") val orderNumber: String,
+    @SerialName("outlet_id") val outletId: String?,
+    @SerialName("waiter_id") val createdBy: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
     val status: String = "open"
 )
 
 @Serializable
 data class NewOrderItem(
     @SerialName("order_id") val orderId: String,
-    @SerialName("menu_item_id") val menuItemId: String,
+    @SerialName("menu_item_id") val menuItemsId: String,
     val name: String,
     @SerialName("unit_price") val unitPrice: Double,
     val quantity: Int,
+    @SerialName("total_price") val totalPrice: Double,
     val notes: String? = null
 )
