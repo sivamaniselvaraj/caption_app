@@ -1,0 +1,2 @@
+create policy "auth all" on public.profiles          for all to authenticated using (true) with check (true);
+create policy "auth all" on public.orders          for all to authenticated using (true) with check (true);

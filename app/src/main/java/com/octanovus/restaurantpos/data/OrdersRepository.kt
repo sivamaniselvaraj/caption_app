@@ -1,11 +1,11 @@
 package com.octanovus.restaurantpos.data
 
 import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.request.RpcRequestBuilder
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
+import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import java.time.OffsetDateTime
 
 class OrdersRepository {
@@ -20,42 +20,52 @@ class OrdersRepository {
         }.decodeList<Order>().firstOrNull()
 
     suspend fun itemsFor(orderId: String): List<OrderItem> =
-        pg.from("order_items").select {
+        pg.from("order_items").select ( Columns.raw("id, order_id, menu_item_id, unit_price, quantity, total_price, status, menu_items:menu_items(name)") ){
             filter { eq("order_id", orderId) }
         }.decodeList()
 
-    suspend fun createOrder(tableId: String, orderNumber: String, userId: String?): Order =
-        pg.from("orders")
-            .insert(NewOrder(tableId = tableId, orderNumber = orderNumber, createdBy = userId, outletId = Session.profile?.outletId, createdAt = OffsetDateTime.now().toString())) { select() }
-            .decodeSingle()
 
-    suspend fun addItems(items: List<NewOrderItem>) {
-        if (items.isNotEmpty()) pg.from("order_items").insert(items)
-    }
-
-    suspend fun getOrderNumber(outletId: String?): String {
-        return pg.rpc("get_next_order_number", buildJsonObject{put("p_outlet_id", outletId)}).data
-    }
-
-    suspend fun confirm(
-        orderId: String,
+    /**
+     * Creates (or appends to) the table's order, inserts the line items, marks the
+     * order confirmed and the table occupied — all inside ONE Postgres transaction.
+     * If any step fails, the server rolls the entire thing back, so there are no
+     * orphan orders or half-updated tables. Returns the order id.
+     */
+    suspend fun placeOrder(
         tableId: String,
+        outletId: String?,
+        items: List<OrderItemInput>,
         subtotal: Double,
         tax: Double,
-        total: Double
-    ) {
-        pg.from("orders").update({
-            set("status", "confirmed")
-            set("subtotal", subtotal)
-            set("tax_amount", tax)
-            set("total", total)
-            set("updated_at", OffsetDateTime.now().toString())
-        }) { filter { eq("id", orderId) } }
+        total: Double,
+        userId: String?
+    ): String {
 
-        pg.from("restaurant_tables").update({
-            set("status", "occupied")
-        }) { filter { eq("id", tableId) } }
+        val placeOrderParams = buildJsonObject {
+            put("p_table_id", tableId)
+            put("p_outlet_id", outletId)
+            putJsonArray("p_items") {
+                items.forEach { item ->
+                    addJsonObject {
+                        put("menu_item_id", item.menuItemId)
+                        //put("name", item.name)
+                        put("unit_price", item.unitPrice)
+                        put("total_price", item.unitPrice * item.quantity)
+                        put("quantity", item.quantity)
+                    }
+                }
+            }
+            put("p_subtotal", subtotal)
+            put("p_tax", tax)
+            put("p_total", total)
+            put("p_created_by", userId)
+        }
+        return pg.rpc(
+            "place_order",
+            placeOrderParams,
+        ).decodeAs<String>()
     }
+
 
     suspend fun markPaid(orderId: String, tableId: String) {
         pg.from("orders").update({

@@ -2,6 +2,8 @@ package com.octanovus.restaurantpos.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonIgnoreUnknownKeys
 import java.util.Date
 
 // ---- Read models ----
@@ -38,7 +40,7 @@ data class MenuCategory(
 )
 
 @Serializable
-//@JsonIgnoreUnknownKeys
+@JsonIgnoreUnknownKeys
 data class MenuItem(
     val id: String,
     @SerialName("category_id") val categoryId: String? = null,
@@ -55,6 +57,7 @@ data class MenuItem(
 )
 
 @Serializable
+@JsonIgnoreUnknownKeys
 data class Order(
     val id: String,
     @SerialName("outlet_id") val outletId: String,
@@ -71,37 +74,36 @@ data class Order(
 )
 
 @Serializable
+@JsonIgnoreUnknownKeys
 data class OrderItem(
     val id: String,
     @SerialName("order_id") val orderId: String,
-    val name: String,
+    //val name: String? = null,
     @SerialName("menu_item_id") val menuItemsId: String,
     @SerialName("unit_price") val unitPrice: Double,
     @SerialName("total_price") val totalPrice: Double,
     val quantity: Int,
-    val notes: String? = null
-)
+    val status: String? = "pending",
+    val notes: String? = null,
+    @SerialName("menu_items") val item: MenuItemRef? = null
+){
+    /** Live name from the joined menu_items row, falling back to the stored snapshot. */
+   // val displayName: String? get() = item?.name ?: name
+}
+
 
 // ---- Insert DTOs (omit DB-generated columns) ----
 
-
+/** One line item sent to the place_order RPC (no order_id — the function assigns it). */
 @Serializable
-data class NewOrder(
-    @SerialName("table_id") val tableId: String,
-    @SerialName("order_number") val orderNumber: String,
-    @SerialName("outlet_id") val outletId: String?,
-    @SerialName("waiter_id") val createdBy: String? = null,
-    @SerialName("created_at") val createdAt: String? = null,
-    val status: String = "open"
-)
-
-@Serializable
-data class NewOrderItem(
-    @SerialName("order_id") val orderId: String,
-    @SerialName("menu_item_id") val menuItemsId: String,
+data class OrderItemInput(
+    @SerialName("menu_item_id") val menuItemId: String,
     val name: String,
     @SerialName("unit_price") val unitPrice: Double,
-    val quantity: Int,
     @SerialName("total_price") val totalPrice: Double,
-    val notes: String? = null
+    val quantity: Int
 )
+
+/** The slice of the joined menu_items row we embed into order_items reads. */
+@Serializable
+data class MenuItemRef(val name: String? = null)

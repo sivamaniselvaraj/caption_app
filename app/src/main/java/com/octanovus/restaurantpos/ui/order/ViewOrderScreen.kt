@@ -1,7 +1,6 @@
 package com.octanovus.restaurantpos.ui.order
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -12,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlin.collections.remove
 
 private fun money(v: Double) = CURRENCY + String.format("%.2f", v)
 
@@ -74,7 +72,7 @@ fun ViewOrderScreen(
                         items(
                             vm.existing,
                             key = { it.id }) { line ->
-                            ExistingRow(line.name, line.quantity, line.unitPrice * line.quantity)
+                            ExistingRow(line.item?.name.toString(), line.quantity, line.unitPrice * line.quantity)
                             HorizontalDivider()
                         }
                     }

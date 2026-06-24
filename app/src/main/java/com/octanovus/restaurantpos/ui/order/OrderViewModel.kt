@@ -9,8 +9,8 @@ import com.octanovus.restaurantpos.data.AuthRepository
 import com.octanovus.restaurantpos.data.MenuCategory
 import com.octanovus.restaurantpos.data.MenuItem
 import com.octanovus.restaurantpos.data.MenuRepository
-import com.octanovus.restaurantpos.data.NewOrderItem
 import com.octanovus.restaurantpos.data.OrderItem
+import com.octanovus.restaurantpos.data.OrderItemInput
 import com.octanovus.restaurantpos.data.OrdersRepository
 import com.octanovus.restaurantpos.data.RestaurantTable
 import com.octanovus.restaurantpos.data.Session
@@ -91,7 +91,7 @@ class OrderViewModel(
 
     val existingSubtotal get() = existing.sumOf { it.unitPrice * it.quantity }
     val cartSubtotal get() = cart.values.sumOf { it.item.price * it.qty }
-    val cartCount get() = cart.values.sumOf { it.qty }
+    val cartCount get() = existing.sumOf { it.quantity } + cart.values.sumOf { it.qty }
     val subtotal get() = existingSubtotal + cartSubtotal
     val tax get() = subtotal * TAX_RATE
     val total get() = subtotal + tax
@@ -101,21 +101,37 @@ class OrderViewModel(
         if (cart.isEmpty()) { onDone(); return@launch }
         confirming = true; error = null
         try {
-            val orderNumber = ordersRepo.getOrderNumber(Session.profile?.outletId)
-            val id = orderId
-                ?: ordersRepo.createOrder(tableId, orderNumber, auth.currentUserId).also { orderId = it.id }.id
-            val newItems = cart.values.map {
-                NewOrderItem(id, it.item.id, it.item.name, it.item.price, it.qty, totalPrice = it.qty * it.item.price)
+//            val orderNumber = ordersRepo.getOrderNumber(Session.profile?.outletId)
+//            val id = orderId
+//                ?: ordersRepo.createOrder(tableId, orderNumber, auth.currentUserId).also { orderId = it.id }.id
+//            val newItems = cart.values.map {
+//                NewOrderItem(id, it.item.id, it.item.name, it.item.price, it.qty, totalPrice = it.qty * it.item.price)
+//            }
+//            ordersRepo.addItems(newItems)
+//            ordersRepo.confirm(id, tableId, subtotal, tax, total)
+
+            val items = cart.values.map {
+                OrderItemInput(it.item.id, it.item.name, it.item.price, it.item.price * it.qty, it.qty)
             }
-            ordersRepo.addItems(newItems)
-            ordersRepo.confirm(id, tableId, subtotal, tax, total)
-            // Fold the just-saved cart into "existing" so totals/bill remain correct.
+
+            // One atomic server call: order + items + table status, or nothing.
+            val id = ordersRepo.placeOrder(
+                tableId = tableId,
+                outletId = Session.profile?.outletId,
+                items = items,
+                subtotal = subtotal,
+                tax = tax,
+                total = total,
+                userId = auth.currentUserId
+            )
+            orderId = id
+            // Success only: fold the just-saved cart into the existing lines.
             existing = existing + cart.values.map {
                 OrderItem(
                     id = "tmp-${it.item.id}", orderId = id,
+                    unitPrice = it.item.price, quantity = it.qty,
                     menuItemsId = it.item.id,
-                    name = it.item.name, unitPrice = it.item.price, quantity = it.qty,
-                    totalPrice = it.qty * it.item.price,
+                    totalPrice = it.item.price * it.qty,
                 )
             }
             cart = emptyMap()
@@ -132,7 +148,7 @@ class OrderViewModel(
         append("[C]Table $tableLabel\n")
         append("[C]================================\n")
         existing.forEach {
-            append("[L]${it.quantity} x ${it.name}[R]${"%.2f".format(it.unitPrice * it.quantity)}\n")
+            append("[L]${it.quantity} x ${it.item?.name}[R]${"%.2f".format(it.unitPrice * it.quantity)}\n")
         }
         cart.values.forEach {
             append("[L]${it.qty} x ${it.item.name}[R]${"%.2f".format(it.item.price * it.qty)}\n")
