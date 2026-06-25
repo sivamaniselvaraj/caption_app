@@ -98,7 +98,7 @@ private fun TableCard(table: RestaurantTable, onClick: () -> Unit) {
             Text("${table.capacity} seats", color = onContainer)
             Spacer(Modifier.height(8.dp))
             Text(
-                if (occupied) "OCCUPIED" else "FREE",
+                if (occupied) "OCCUPIED" else "AVAILABLE",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = onContainer

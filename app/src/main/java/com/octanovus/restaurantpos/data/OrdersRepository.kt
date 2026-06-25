@@ -15,7 +15,7 @@ class OrdersRepository {
         pg.from("orders").select {
             filter {
                 eq("table_id", tableId)
-                isIn("status", listOf("open", "confirmed"))
+                isIn("status", listOf("open", "confirmed", "pending", "preparing", "ready", "served"))
             }
         }.decodeList<Order>().firstOrNull()
 
@@ -73,8 +73,8 @@ class OrdersRepository {
             set("paid_at", OffsetDateTime.now().toString())
         }) { filter { eq("id", orderId) } }
 
-        pg.from("restaurant_tables").update({
-            set("status", "free")
+        pg.from("tables").update({
+            set("status", "available")
         }) { filter { eq("id", tableId) } }
     }
 

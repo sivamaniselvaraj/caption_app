@@ -59,7 +59,7 @@ class OrderViewModel(
             existing = order?.let { ordersRepo.itemsFor(it.id) } ?: emptyList()
             val all = tablesRepo.getTables()
             tableLabel = all.firstOrNull { it.id == tableId }?.tableNumber ?: ""
-            freeTables = all.filter { it.id != tableId && it.status == "free" }
+            //freeTables = all.filter { it.id != tableId && it.status == "available" }
         } catch (e: Exception) {
             error = e.message
         } finally {

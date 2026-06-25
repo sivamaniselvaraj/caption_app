@@ -31,7 +31,6 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
-postgrest-kt = { module = "io.github.jan-tennert.supabase:postgrest-kt" }
 supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabase" }
 supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
 supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt" }
@@ -39,7 +38,7 @@ supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
 escpos = { group = "com.github.DantSu", name = "ESCPOS-ThermalPrinter-Android", version.ref = "escpos" }
 #androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-supabase-serializer-moshi ={group = "io.github.jan-tennert.supabase", name="serializer-moshi", version.ref = "moshi"}
+#supabase-serializer-moshi ={group = "io.github.jan-tennert.supabase", name="serializer-moshi", version.ref = "moshi"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -18,7 +18,7 @@ class TablesRepository {
             {filter  { eq("outlet_id", Session.profile?.outletId ?: "") } }
             .decodeList<RestaurantTable>()
 
-    /** Emits on any insert/update/delete to restaurant_tables. Channel is torn down on cancel. */
+    /** Emits on any insert/update/delete to tables. Channel is torn down on cancel. */
     fun tableChanges(): Flow<PostgresAction> {
         val channel = Supabase.client.channel("public:tables")
         val flow = channel.postgresChangeFlow<PostgresAction>(schema = "public") {

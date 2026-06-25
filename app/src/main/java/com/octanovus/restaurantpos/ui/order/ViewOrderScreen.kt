@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -42,6 +44,7 @@ fun ViewOrderScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Items ${vm.cartCount}", fontWeight = FontWeight.SemiBold)
+                        Text("Tax ${money(vm.tax)}", fontWeight = FontWeight.SemiBold)
                         Text("Total ${money(vm.total)}", fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(8.dp))
@@ -68,11 +71,11 @@ fun ViewOrderScreen(
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     if (vm.existing.isNotEmpty()) {
-                        item { SectionHeader("Already ordered") }
+                        item { SectionHeader("Active orders") }
                         items(
                             vm.existing,
                             key = { it.id }) { line ->
-                            ExistingRow(line.item?.name.toString(), line.quantity, line.unitPrice * line.quantity)
+                            ExistingRow(line.item?.name.toString(), line.quantity, line.unitPrice * line.quantity, status = line.status.toString())
                             HorizontalDivider()
                         }
                     }
@@ -108,7 +111,7 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun ExistingRow(name: String, qty: Int, lineTotal: Double) {
+private fun ExistingRow(name: String, qty: Int, lineTotal: Double, status: String) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -119,6 +122,7 @@ private fun ExistingRow(name: String, qty: Int, lineTotal: Double) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(name, Modifier.weight(1f))
+        Text(status, Modifier.weight(1f), style = TextStyle(background = Color.LightGray))
         Text(money(lineTotal))
     }
 }
