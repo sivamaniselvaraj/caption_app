@@ -46,6 +46,7 @@ class OrderViewModel(
 
     private var orderId: String? = null
     val hasActiveOrder get() = orderId != null
+    val activeOrderId: String? get() = orderId
 
     init { load() }
 
@@ -59,7 +60,7 @@ class OrderViewModel(
             existing = order?.let { ordersRepo.itemsFor(it.id) } ?: emptyList()
             val all = tablesRepo.getTables()
             tableLabel = all.firstOrNull { it.id == tableId }?.tableNumber ?: ""
-            //freeTables = all.filter { it.id != tableId && it.status == "available" }
+            freeTables = all.filter { it.id != tableId && it.status == "available" }
         } catch (e: Exception) {
             error = e.message
         } finally {
@@ -101,15 +102,6 @@ class OrderViewModel(
         if (cart.isEmpty()) { onDone(); return@launch }
         confirming = true; error = null
         try {
-//            val orderNumber = ordersRepo.getOrderNumber(Session.profile?.outletId)
-//            val id = orderId
-//                ?: ordersRepo.createOrder(tableId, orderNumber, auth.currentUserId).also { orderId = it.id }.id
-//            val newItems = cart.values.map {
-//                NewOrderItem(id, it.item.id, it.item.name, it.item.price, it.qty, totalPrice = it.qty * it.item.price)
-//            }
-//            ordersRepo.addItems(newItems)
-//            ordersRepo.confirm(id, tableId, subtotal, tax, total)
-
             val items = cart.values.map {
                 OrderItemInput(it.item.id, it.item.name, it.item.price, it.item.price * it.qty, it.qty)
             }
@@ -141,24 +133,6 @@ class OrderViewModel(
         } finally {
             confirming = false
         }
-    }
-
-    fun buildBillText(restaurant: String): String = buildString {
-        append("[C]<font size='big'>$restaurant</font>\n")
-        append("[C]Table $tableLabel\n")
-        append("[C]================================\n")
-        existing.forEach {
-            append("[L]${it.quantity} x ${it.item?.name}[R]${"%.2f".format(it.unitPrice * it.quantity)}\n")
-        }
-        cart.values.forEach {
-            append("[L]${it.qty} x ${it.item.name}[R]${"%.2f".format(it.item.price * it.qty)}\n")
-        }
-        append("[C]--------------------------------\n")
-        append("[R]Subtotal[R]${"%.2f".format(subtotal)}\n")
-        append("[R]Tax[R]${"%.2f".format(tax)}\n")
-        append("[R]<b><font size='tall'>TOTAL ${"%.2f".format(total)}</font></b>\n")
-        append("[C]================================\n")
-        append("[C]Thank you!\n")
     }
 
     fun markPaid(onDone: () -> Unit) = viewModelScope.launch {

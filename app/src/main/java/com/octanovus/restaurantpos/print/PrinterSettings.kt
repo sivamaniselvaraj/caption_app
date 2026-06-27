@@ -16,29 +16,13 @@ object PrinterSettings {
         prefs = context.applicationContext.getSharedPreferences("printer", Context.MODE_PRIVATE)
     }
 
-    var type: com.octanovus.restaurantpos.print.PrinterType
-        get() = _root_ide_package_.com.octanovus.restaurantpos.print.PrinterType.valueOf(prefs.getString("type", _root_ide_package_.com.octanovus.restaurantpos.print.PrinterType.BLUETOOTH.name)!!)
-        set(v) = prefs.edit { putString("type", v.name) }
-
-    var ip: String
-        get() = prefs.getString("ip", "192.168.0.100")!!
-        set(v) = prefs.edit { putString("ip", v) }
+    var host: String
+        get() = prefs.getString("host", "192.168.0.100")!!
+        set(v) = prefs.edit { putString("host", v) }
 
     var port: Int
-        get() = prefs.getInt("port", 9100)
+        get() = prefs.getInt("port", 5001)
         set(v) = prefs.edit { putInt("port", v) }
-
-    var dpi: Int
-        get() = prefs.getInt("dpi", 203)
-        set(v) = prefs.edit { putInt("dpi", v) }
-
-    var paperWidthMM: Float
-        get() = prefs.getFloat("paper", 48f)
-        set(v) = prefs.edit { putFloat("paper", v) }
-
-    var charsPerLine: Int
-        get() = prefs.getInt("cpl", 32)
-        set(v) = prefs.edit { putInt("cpl", v) }
 
     var restaurantName: String
         get() = prefs.getString("name", "My Restaurant")!!

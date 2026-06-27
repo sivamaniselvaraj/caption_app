@@ -69,7 +69,7 @@ class OrdersRepository {
 
     suspend fun markPaid(orderId: String, tableId: String) {
         pg.from("orders").update({
-            set("status", "paid")
+            set("status", "completed")
             set("paid_at", OffsetDateTime.now().toString())
         }) { filter { eq("id", orderId) } }
 

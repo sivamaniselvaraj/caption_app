@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,9 +19,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.octanovus.restaurantpos.data.MenuItem
 import com.octanovus.restaurantpos.print.BillPrinter
-import com.octanovus.restaurantpos.print.PrinterSettings
-import com.octanovus.restaurantpos.print.PrinterType
-import com.octanovus.restaurantpos.print.rememberBluetoothPermission
 import kotlinx.coroutines.launch
 
 private fun money(v: Double) = CURRENCY + String.format("%.2f", v)
@@ -34,25 +30,15 @@ fun OrderScreen(tableId: String, onBack: () -> Unit, onViewOrder: () -> Unit) {
         factory = viewModelFactory { initializer { OrderViewModel(tableId) } }
     )
 
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val printer = remember { BillPrinter(context) }
+    val printer = remember { BillPrinter() }
     var menuOpen by remember { mutableStateOf(false) }
 
-    // Action held while waiting for the Bluetooth permission result.
-    var pendingPrint by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val ensureBt = rememberBluetoothPermission { granted ->
-        if (granted) pendingPrint?.invoke()
-        else vm.error = "Bluetooth permission denied"
-        pendingPrint = null
-    }
-
     fun doPayAndPrint() {
-        val bill = vm.buildBillText(PrinterSettings.restaurantName)
         vm.confirm {                       // persist any new cart lines + totals first
             scope.launch {
                 try {
-                    printer.print(bill)
+                    vm.activeOrderId?.let { printer.printOrder(it) }
                     vm.markPaid(onBack)
                 } catch (e: Exception) {
                     vm.error = e.message
@@ -118,14 +104,7 @@ fun OrderScreen(tableId: String, onBack: () -> Unit, onViewOrder: () -> Unit) {
                     if (vm.hasActiveOrder) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = {
-                                if (PrinterSettings.type == PrinterType.BLUETOOTH) {
-                                    pendingPrint = ::doPayAndPrint
-                                    ensureBt()
-                                } else {
-                                    doPayAndPrint()
-                                }
-                            },
+                            onClick = { doPayAndPrint() },
                             enabled = !vm.working && !vm.confirming,
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Pay & print bill") }

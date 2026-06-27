@@ -1,34 +1,39 @@
 package com.octanovus.restaurantpos.print
 
-import android.content.Context
-import com.dantsu.escposprinter.EscPosPrinter
-import com.dantsu.escposprinter.connection.DeviceConnection
-import com.dantsu.escposprinter.connection.bluetooth.BluetoothPrintersConnections
-import com.dantsu.escposprinter.connection.tcp.TcpConnection
-import com.dantsu.escposprinter.connection.usb.UsbPrintersConnections
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
- * Resolves the right connection from PrinterSettings and prints formatted ESC/POS text.
- * Supports Bluetooth, TCP (network/WiFi) and USB. Runs entirely off the main thread.
+ * Triggers a bill print by calling the print server:
+ *   POST http://{host}:{port}/api/order
+ * The server is responsible for fetching the order and rendering/printing it.
  */
-class BillPrinter(private val context: Context) {
+class BillPrinter {
 
-    suspend fun print(formattedText: String) = withContext(Dispatchers.IO) {
-        val s = _root_ide_package_.com.octanovus.restaurantpos.print.PrinterSettings
-        val connection: DeviceConnection = when (s.type) {
-            _root_ide_package_.com.octanovus.restaurantpos.print.PrinterType.BLUETOOTH ->
-                BluetoothPrintersConnections.selectFirstPaired()
-                    ?: error("No paired Bluetooth printer found")
-            _root_ide_package_.com.octanovus.restaurantpos.print.PrinterType.TCP ->
-                TcpConnection(s.ip, s.port)
-            _root_ide_package_.com.octanovus.restaurantpos.print.PrinterType.USB ->
-                UsbPrintersConnections.selectFirstConnected(context)
-                    ?: error("No USB printer connected")
+    suspend fun printOrder(orderId: String) = withContext(Dispatchers.IO) {
+        val s = PrinterSettings
+        val url = URL("http://${s.host}:${s.port}/api/print-order")
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 10_000
+            readTimeout = 10_000
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
         }
-        EscPosPrinter(connection, s.dpi, s.paperWidthMM, s.charsPerLine)
-            .printFormattedTextAndCut(formattedText)
-            .disconnectPrinter()
+        try {
+            // Send the order id in the JSON body.
+            val payload = """{"orderId":"$orderId"}"""
+            conn.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                val body = (conn.errorStream ?: conn.inputStream)
+                    ?.bufferedReader()?.use { it.readText() }
+                    .orEmpty()
+                error("Print server returned HTTP $code" + if (body.isNotBlank()) ": ${body.take(200)}" else "")
+            }
+        } finally {
+            conn.disconnect()
+        }
     }
 }
