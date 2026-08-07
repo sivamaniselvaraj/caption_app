@@ -38,7 +38,7 @@ fun OrderScreen(tableId: String, onBack: () -> Unit, onViewOrder: () -> Unit) {
         vm.confirm {                       // persist any new cart lines + totals first
             scope.launch {
                 try {
-                    vm.activeOrderId?.let { printer.printOrder(it) }
+                    vm.activeOrderId?.let { printer.printOrder(it, "bill") }
                     vm.markPaid(onBack)
                 } catch (e: Exception) {
                     vm.error = e.message

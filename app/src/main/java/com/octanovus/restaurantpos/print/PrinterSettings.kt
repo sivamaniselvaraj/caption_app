@@ -17,7 +17,7 @@ object PrinterSettings {
     }
 
     var host: String
-        get() = prefs.getString("host", "192.168.0.100")!!
+        get() = prefs.getString("host", "192.168.0.108")!!
         set(v) = prefs.edit { putString("host", v) }
 
     var port: Int

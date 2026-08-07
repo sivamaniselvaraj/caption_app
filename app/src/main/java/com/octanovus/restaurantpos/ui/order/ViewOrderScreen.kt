@@ -7,12 +7,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.octanovus.restaurantpos.print.BillPrinter
+import kotlinx.coroutines.launch
 
 private fun money(v: Double) = CURRENCY + String.format("%.2f", v)
 
@@ -23,6 +27,9 @@ fun ViewOrderScreen(
     onBack: () -> Unit,
     onConfirmed: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    val printer = remember { BillPrinter() }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -49,13 +56,29 @@ fun ViewOrderScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Button(
-                        onClick = { vm.confirm(onDone = onConfirmed) },
+                        //onClick = { vm.confirm(onDone = onConfirmed) },
+                        onClick = {
+                            vm.confirm {                       // order persisted & confirmed first
+                                scope.launch {
+                                    try {
+                                        vm.activeOrderId?.let { printer.printOrder(it, "kot") }
+                                        onConfirmed()          // KOT sent -> back to tables
+                                    } catch (e: Exception) {
+                                        vm.error = "Order confirmed, but KOT print failed: ${e.message}"
+                                    }
+                                }
+                            }
+                        },
                         enabled = vm.cart.isNotEmpty() && !vm.confirming && !vm.working,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         if (vm.confirming)
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         else Text("Confirm order")
+                        vm.error?.let {
+                            Spacer(Modifier.height(8.dp))
+                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
