@@ -87,7 +87,7 @@ fun OrderScreen(tableId: String, onBack: () -> Unit, onViewOrder: () -> Unit) {
         },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -137,16 +137,26 @@ fun OrderScreen(tableId: String, onBack: () -> Unit, onViewOrder: () -> Unit) {
 
                     // Category tabs only matter when not searching (search spans all categories).
                     if (!vm.isSearching && vm.categories.isNotEmpty()) {
-                        val selectedIndex = vm.categories.indexOfFirst { it.id == vm.selectedCategory }
+                        // index 0 is "All"; real categories follow
+                        val tabs = listOf<Pair<String, String?>>("All" to null) +
+                                vm.categories.map { it.name to it.id }
+                        val selectedIndex = tabs.indexOfFirst { it.second == vm.selectedCategory }
                         ScrollableTabRow(
                             selectedTabIndex = selectedIndex.coerceAtLeast(0),
                             edgePadding = 12.dp
                         ) {
-                            vm.categories.forEach { cat ->
+//                            vm.categories.forEach { cat ->
+//                                Tab(
+//                                    selected = cat.id == vm.selectedCategory,
+//                                    onClick = { vm.selectedCategory = cat.id },
+//                                    text = { Text(cat.name) }
+//                                )
+//                            }
+                            tabs.forEach { (label, id) ->
                                 Tab(
-                                    selected = cat.id == vm.selectedCategory,
-                                    onClick = { vm.selectedCategory = cat.id },
-                                    text = { Text(cat.name) }
+                                    selected = id == vm.selectedCategory,
+                                    onClick = { vm.selectedCategory = id },
+                                    text = { Text(label) }
                                 )
                             }
                         }

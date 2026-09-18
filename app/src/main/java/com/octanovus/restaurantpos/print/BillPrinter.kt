@@ -18,8 +18,8 @@ class BillPrinter {
     suspend fun printOrder(orderId: String, type: String) = withContext(Dispatchers.IO) {
         val s = PrinterSettings
         // Send the order id in the JSON body.
-        val payload = """{"orderId":"$orderId"}"""
-        val url = URL("http://${s.host}:${s.port}/api/print-order?type=$type")
+        val payload = """{"orderId":"$orderId", "type":"$type"}"""
+        val url = URL("http://${s.host}:${s.port}/api/print-order")
         Log.d("BillPrinter", "POST $url  body=$payload")
         // Proxy.NO_PROXY bypasses any Wi-Fi proxy configured on the device, which
         // can block direct LAN connections even when the browser works.

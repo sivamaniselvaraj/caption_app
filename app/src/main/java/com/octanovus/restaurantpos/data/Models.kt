@@ -52,7 +52,7 @@ data class MenuItem(
     @SerialName("is_active") val isActive: Boolean = true,
     @SerialName("container_charge") val containerCharge: Int = 0,
     @SerialName("outlet_id") val outletId: String,
-    @SerialName("search_key") val searchKey: String = ""
+    @SerialName("search_key") val searchKey: String? = null
 
 )
 

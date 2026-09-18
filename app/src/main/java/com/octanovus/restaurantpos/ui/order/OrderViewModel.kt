@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.octanovus.restaurantpos.data.AuthRepository
 import com.octanovus.restaurantpos.data.MenuCategory
 import com.octanovus.restaurantpos.data.MenuItem
+import com.octanovus.restaurantpos.data.MenuItemRef
 import com.octanovus.restaurantpos.data.MenuRepository
 import com.octanovus.restaurantpos.data.OrderItem
 import com.octanovus.restaurantpos.data.OrderItemInput
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 const val TAX_RATE = 0.05   // e.g. 0.05 for 5%
 const val CURRENCY = "₹"
 
+
 data class CartLine(val item: MenuItem, val qty: Int)
 
 class OrderViewModel(
@@ -29,6 +31,8 @@ class OrderViewModel(
     private val tablesRepo: TablesRepository = TablesRepository(),
     private val auth: AuthRepository = AuthRepository()
 ) : ViewModel() {
+
+    companion object { val ALL_CATEGORY: String? = null }
 
     var categories by mutableStateOf<List<MenuCategory>>(emptyList()); private set
     var menu by mutableStateOf<List<MenuItem>>(emptyList()); private set
@@ -54,7 +58,8 @@ class OrderViewModel(
         try {
             categories = menuRepo.categories()
             menu = menuRepo.items()
-            selectedCategory = categories.firstOrNull()?.id
+            //selectedCategory = categories.firstOrNull()?.id
+            selectedCategory = ALL_CATEGORY   // "All" selected by default
             val order = ordersRepo.activeOrder(tableId)
             orderId = order?.id
             existing = order?.let { ordersRepo.itemsFor(it.id) } ?: emptyList()
@@ -76,8 +81,13 @@ class OrderViewModel(
      */
     fun visibleItems(): List<MenuItem> {
         val q = searchQuery.trim()
-        return if (q.isBlank()) menu.filter { it.categoryId == selectedCategory }
-        else menu.filter { it.name.contains(q, ignoreCase = true) || it.searchKey.contains(q, ignoreCase = true)}
+        return when {
+            (q.isNotBlank()) -> menu.filter { it.name.contains(q, ignoreCase = true) || it.searchKey?.contains(q, ignoreCase = true) == true}
+            selectedCategory == ALL_CATEGORY -> menu
+            else -> menu.filter {
+                it.name.contains(q, ignoreCase = true) || it.searchKey?.contains(q, ignoreCase = true) == true
+            }
+        }
     }
     fun qtyOf(id: String) = cart[id]?.qty ?: 0
 
@@ -121,6 +131,7 @@ class OrderViewModel(
             existing = existing + cart.values.map {
                 OrderItem(
                     id = "tmp-${it.item.id}", orderId = id,
+                    item = MenuItemRef(it.item.name),
                     unitPrice = it.item.price, quantity = it.qty,
                     menuItemsId = it.item.id,
                     totalPrice = it.item.price * it.qty,

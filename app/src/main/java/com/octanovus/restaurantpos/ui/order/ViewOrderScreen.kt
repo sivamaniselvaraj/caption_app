@@ -45,16 +45,31 @@ fun ViewOrderScreen(
         },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)) {
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Items ${vm.cartCount}", fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text("Tax ${money(vm.tax)}", fontWeight = FontWeight.SemiBold)
                         Text("Total ${money(vm.total)}", fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ){
+                        vm.error?.let {
+                            Spacer(Modifier.height(8.dp))
+                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                     Button(
                         //onClick = { vm.confirm(onDone = onConfirmed) },
                         onClick = {
@@ -75,10 +90,6 @@ fun ViewOrderScreen(
                         if (vm.confirming)
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         else Text("Confirm order")
-                        vm.error?.let {
-                            Spacer(Modifier.height(8.dp))
-                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        }
                     }
                 }
             }
