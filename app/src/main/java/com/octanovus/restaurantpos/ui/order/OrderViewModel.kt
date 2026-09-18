@@ -17,6 +17,7 @@ import com.octanovus.restaurantpos.data.RestaurantTable
 import com.octanovus.restaurantpos.data.Session
 import com.octanovus.restaurantpos.data.TablesRepository
 import kotlinx.coroutines.launch
+import kotlinx.serialization.SerialName
 
 const val TAX_RATE = 0.05   // e.g. 0.05 for 5%
 const val CURRENCY = "₹"
@@ -58,6 +59,7 @@ class OrderViewModel(
         try {
             categories = menuRepo.categories()
             menu = menuRepo.items()
+            android.util.Log.d("menu", menu.take(3).joinToString { "${it.name}:cat=${it.categoryId}" })
             //selectedCategory = categories.firstOrNull()?.id
             selectedCategory = ALL_CATEGORY   // "All" selected by default
             val order = ordersRepo.activeOrder(tableId)
@@ -83,9 +85,9 @@ class OrderViewModel(
         val q = searchQuery.trim()
         return when {
             (q.isNotBlank()) -> menu.filter { it.name.contains(q, ignoreCase = true) || it.searchKey?.contains(q, ignoreCase = true) == true}
-            selectedCategory == ALL_CATEGORY -> menu
-            else -> menu.filter {
-                it.name.contains(q, ignoreCase = true) || it.searchKey?.contains(q, ignoreCase = true) == true
+            selectedCategory == null -> menu
+            else -> menu.filter { selectedCategory == it.categoryId
+                    //|| it.name.contains(q, ignoreCase = true) || it.searchKey?.contains(q, ignoreCase = true) == true
             }
         }
     }

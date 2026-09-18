@@ -80,6 +80,8 @@ fun ViewOrderScreen(
                                         onConfirmed()          // KOT sent -> back to tables
                                     } catch (e: Exception) {
                                         vm.error = "Order confirmed, but KOT print failed: ${e.message}"
+                                    }finally {
+                                        onConfirmed()
                                     }
                                 }
                             }
