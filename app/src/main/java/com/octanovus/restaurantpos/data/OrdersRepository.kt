@@ -11,25 +11,41 @@ import java.time.OffsetDateTime
 class OrdersRepository {
     private val pg get() = Supabase.client.postgrest
 
-    suspend fun activeOrder(tableId: String): Order? =
+    /** Statuses that count as "active" for a dine-in table (not yet printed/paid). */
+    private val activeStatuses =
+        listOf("open", "confirmed", "pending", "preparing", "ready", "served")
+
+    /** All active (unpaid, un-printed) orders for a table. A table can now have many. */
+    suspend fun activeOrders(tableId: String): List<Order> =
         pg.from("orders").select {
             filter {
                 eq("table_id", tableId)
-                isIn("status", listOf("open", "confirmed", "pending", "preparing", "ready", "served"))
+                isIn("status", activeStatuses)
             }
-        }.decodeList<Order>().firstOrNull()
+        }.decodeList()
 
+    /** Items across a set of orders (used to show every active order on a table). */
+    suspend fun itemsForOrders(orderIds: List<String>): List<OrderItem> {
+        if (orderIds.isEmpty()) return emptyList()
+        return pg.from("order_items").select(
+            Columns.raw("id, order_id, menu_item_id, unit_price, quantity, total_price, status, menu_items:menu_items(name)")
+        ) {
+            filter { isIn("order_id", orderIds) }
+        }.decodeList()
+    }
+
+    /** Items of a single order. */
     suspend fun itemsFor(orderId: String): List<OrderItem> =
-        pg.from("order_items").select ( Columns.raw("id, order_id, menu_item_id, unit_price, quantity, total_price, status, menu_items:menu_items(name)") ){
+        pg.from("order_items").select (
+            Columns.raw("id, order_id, menu_item_id, unit_price, quantity, total_price, status, menu_items:menu_items(name)")
+        ) {
             filter { eq("order_id", orderId) }
         }.decodeList()
 
-
     /**
-     * Creates (or appends to) the table's order, inserts the line items, marks the
-     * order confirmed and the table occupied — all inside ONE Postgres transaction.
-     * If any step fails, the server rolls the entire thing back, so there are no
-     * orphan orders or half-updated tables. Returns the order id.
+     * Creates a NEW order for the table (server-side place_order always inserts a
+     * fresh order now), inserts its items, and keeps the table occupied — atomically.
+     * Returns the new order id.
      */
     suspend fun placeOrder(
         tableId: String,
@@ -66,19 +82,22 @@ class OrdersRepository {
         ).decodeAs<String>()
     }
 
-
-    suspend fun markPaid(orderId: String, tableId: String) {
+    /**
+     * Bill printed: mark ALL of the table's active orders as payment_pending.
+     * Deliberately does NOT change the table status — the desktop app frees it.
+     */
+    suspend fun markTablePaymentPending(tableId: String) {
         pg.from("orders").update({
-            set("status", "completed")
-            set("paid_at", OffsetDateTime.now().toString())
-        }) { filter { eq("id", orderId) } }
-
-        pg.from("tables").update({
-            set("status", "available")
-        }) { filter { eq("id", tableId) } }
+            set("status", "payment_pending")
+        }) {
+            filter {
+                eq("table_id", tableId)
+                isIn("status", activeStatuses)
+            }
+        }
     }
 
-    /** Atomic move + table-status update handled server-side by the transfer_order function. */
+    /** Atomic move + table-status update handled server-side by transfer_order. */
     suspend fun transfer(orderId: String, toTableId: String) {
         pg.rpc("transfer_order", buildJsonObject {
             put("p_order_id", orderId)

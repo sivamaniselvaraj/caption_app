@@ -76,7 +76,7 @@ fun ViewOrderScreen(
                             vm.confirm {                       // order persisted & confirmed first
                                 scope.launch {
                                     try {
-                                        vm.activeOrderId?.let { printer.printOrder(it, "kot") }
+                                        vm.activeOrderId?.let { printer.printOrder(it, "", "kot") }
                                         onConfirmed()          // KOT sent -> back to tables
                                     } catch (e: Exception) {
                                         vm.error = "Order confirmed, but KOT print failed: ${e.message}"
@@ -93,6 +93,11 @@ fun ViewOrderScreen(
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         else Text("Confirm order")
                     }
+                    vm.error?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
@@ -106,13 +111,23 @@ fun ViewOrderScreen(
                 )
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
-                    if (vm.existing.isNotEmpty()) {
-                        item { SectionHeader("Active orders") }
-                        items(
-                            vm.existing,
-                            key = { it.id }) { line ->
-                            ExistingRow(line.item?.name.toString(), line.quantity, line.unitPrice * line.quantity, status = line.status.toString())
-                            HorizontalDivider()
+                    // ---- One section per active order on this table ----
+                    vm.activeOrders.forEachIndexed { index, order ->
+                        val orderItems = vm.itemsForOrder(order.id)
+                        if (orderItems.isNotEmpty()) {
+                            val orderTotal = orderItems.sumOf { it.unitPrice * it.quantity }
+                            item(key = "hdr-${order.id}") {
+                                OrderGroupHeader("Order ${index + 1}", orderTotal)
+                            }
+                            items(orderItems, key = { it.id }) { line ->
+                                ExistingRow(
+                                    name = line.item?.name ?: "-",
+                                    qty = line.quantity,
+                                    lineTotal = line.unitPrice * line.quantity,
+                                    status = line.status.toString()
+                                )
+                                HorizontalDivider()
+                            }
                         }
                     }
                     if (vm.cart.isNotEmpty()) {
@@ -133,6 +148,26 @@ fun ViewOrderScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun OrderGroupHeader(title: String, total: Double) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            money(total),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }
 

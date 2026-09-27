@@ -10,15 +10,33 @@ import java.net.URL
 
 /**
  * Triggers a bill print by calling the print server:
- *   POST http://{host}:{port}/api/order
- * The server is responsible for fetching the order and rendering/printing it.
+ *   POST http://{host}:{port}/api/print-order   body: {"tableId":"<id>"}
+ * The server gathers all active orders for the table and prints one bill.
  */
 class BillPrinter {
 
-    suspend fun printOrder(orderId: String, type: String) = withContext(Dispatchers.IO) {
+    suspend fun printOrder(tableId: String, orderId: String, type: String) = withContext(Dispatchers.IO) {
         val s = PrinterSettings
         // Send the order id in the JSON body.
-        val payload = """{"orderId":"$orderId", "type":"$type"}"""
+
+        if(tableId.isEmpty() && orderId.isEmpty()){
+            throw IOException("invalid response table or order id is empty")
+        }
+
+        if(tableId.isNotEmpty() && orderId.isNotEmpty()){
+            throw IOException("invalid response cannot pass both table or order id ")
+        }
+
+        var payload = """{ "type":"$type", "orderType":"dine-in", """
+        if(orderId.isNotEmpty()){
+            payload += """, "orderId":"${orderId}""""
+        }
+        else if(tableId.isNotEmpty()){
+            payload += """, "tableId":"${tableId}""""
+        }
+
+        payload += """}"""
+
         val url = URL("http://${s.host}:${s.port}/api/print-order")
         Log.d("BillPrinter", "POST $url  body=$payload")
         // Proxy.NO_PROXY bypasses any Wi-Fi proxy configured on the device, which

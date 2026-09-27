@@ -8,8 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.octanovus.restaurantpos.data.AuthRepository
 import com.octanovus.restaurantpos.data.MenuCategory
 import com.octanovus.restaurantpos.data.MenuItem
-import com.octanovus.restaurantpos.data.MenuItemRef
 import com.octanovus.restaurantpos.data.MenuRepository
+import com.octanovus.restaurantpos.data.Order
 import com.octanovus.restaurantpos.data.OrderItem
 import com.octanovus.restaurantpos.data.OrderItemInput
 import com.octanovus.restaurantpos.data.OrdersRepository
@@ -17,7 +17,7 @@ import com.octanovus.restaurantpos.data.RestaurantTable
 import com.octanovus.restaurantpos.data.Session
 import com.octanovus.restaurantpos.data.TablesRepository
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerialName
+import kotlin.collections.isNotEmpty
 
 const val TAX_RATE = 0.05   // e.g. 0.05 for 5%
 const val CURRENCY = "₹"
@@ -39,6 +39,8 @@ class OrderViewModel(
     var menu by mutableStateOf<List<MenuItem>>(emptyList()); private set
     var selectedCategory by mutableStateOf<String?>(null)
     var searchQuery by mutableStateOf("")
+
+    // Items across ALL of this table's active orders (read-only, for display).
     var existing by mutableStateOf<List<OrderItem>>(emptyList()); private set
     var cart by mutableStateOf<Map<String, CartLine>>(emptyMap()); private set
     var loading by mutableStateOf(true); private set
@@ -49,9 +51,13 @@ class OrderViewModel(
     var tableLabel by mutableStateOf(""); private set
     var freeTables by mutableStateOf<List<RestaurantTable>>(emptyList()); private set
 
-    private var orderId: String? = null
-    val hasActiveOrder get() = orderId != null
-    val activeOrderId: String? get() = orderId
+    // A table can now have MANY active orders.
+    var activeOrders by mutableStateOf<List<Order>>(emptyList())
+    val hasActiveOrder get() = activeOrders.isNotEmpty()
+    /** Most recent active order (used only by transfer, which is single-order). */
+    val activeOrderId: String? get() = activeOrders.lastOrNull()?.id
+    /** The order created by the last confirm() — useful for a KOT print. */
+    var lastConfirmedOrderId by mutableStateOf<String?>(null); private set
 
     init { load() }
 
@@ -62,9 +68,7 @@ class OrderViewModel(
             android.util.Log.d("menu", menu.take(3).joinToString { "${it.name}:cat=${it.categoryId}" })
             //selectedCategory = categories.firstOrNull()?.id
             selectedCategory = ALL_CATEGORY   // "All" selected by default
-            val order = ordersRepo.activeOrder(tableId)
-            orderId = order?.id
-            existing = order?.let { ordersRepo.itemsFor(it.id) } ?: emptyList()
+            refreshActiveOrders()
             val all = tablesRepo.getTables()
             tableLabel = all.firstOrNull { it.id == tableId }?.tableNumber ?: ""
             freeTables = all.filter { it.id != tableId && it.status == "available" }
@@ -73,6 +77,12 @@ class OrderViewModel(
         } finally {
             loading = false
         }
+    }
+
+    private suspend fun refreshActiveOrders() {
+        val orders = ordersRepo.activeOrders(tableId)
+        activeOrders = orders
+        existing = ordersRepo.itemsForOrders(orders.map { it.id })
     }
 
     val isSearching get() = searchQuery.isNotBlank()
@@ -84,7 +94,10 @@ class OrderViewModel(
     fun visibleItems(): List<MenuItem> {
         val q = searchQuery.trim()
         return when {
-            (q.isNotBlank()) -> menu.filter { it.name.contains(q, ignoreCase = true) || it.searchKey?.contains(q, ignoreCase = true) == true}
+            (q.isNotBlank()) -> menu.filter {
+                it.name.contains(q, ignoreCase = true)
+                        || it.searchKey?.contains(q, ignoreCase = true) == true
+            }
             selectedCategory == null -> menu
             else -> menu.filter { selectedCategory == it.categoryId
                     //|| it.name.contains(q, ignoreCase = true) || it.searchKey?.contains(q, ignoreCase = true) == true
@@ -109,7 +122,10 @@ class OrderViewModel(
     val tax get() = subtotal * TAX_RATE
     val total get() = subtotal + tax
 
-    /** Persists the current cart as confirmed items, then clears it. */
+    /**
+     * Confirms the current cart as a BRAND-NEW order (place_order always inserts a
+     * fresh order now), then reloads the table's active orders so the new one shows.
+     */
     fun confirm(onDone: () -> Unit) = viewModelScope.launch {
         if (cart.isEmpty()) { onDone(); return@launch }
         confirming = true; error = null
@@ -119,27 +135,18 @@ class OrderViewModel(
             }
 
             // One atomic server call: order + items + table status, or nothing.
-            val id = ordersRepo.placeOrder(
+            val newId = ordersRepo.placeOrder(
                 tableId = tableId,
                 outletId = Session.profile?.outletId,
                 items = items,
-                subtotal = subtotal,
-                tax = tax,
-                total = total,
+                subtotal = cartSubtotal,
+                tax = cartSubtotal * TAX_RATE,
+                total = cartSubtotal * (1 + TAX_RATE),
                 userId = auth.currentUserId
             )
-            orderId = id
-            // Success only: fold the just-saved cart into the existing lines.
-            existing = existing + cart.values.map {
-                OrderItem(
-                    id = "tmp-${it.item.id}", orderId = id,
-                    item = MenuItemRef(it.item.name),
-                    unitPrice = it.item.price, quantity = it.qty,
-                    menuItemsId = it.item.id,
-                    totalPrice = it.item.price * it.qty,
-                )
-            }
+            lastConfirmedOrderId = newId
             cart = emptyMap()
+            refreshActiveOrders()                 // pull the new order back for display
             onDone()
         } catch (e: Exception) {
             error = e.message
@@ -148,11 +155,11 @@ class OrderViewModel(
         }
     }
 
-    fun markPaid(onDone: () -> Unit) = viewModelScope.launch {
-        val id = orderId ?: return@launch
+    fun markPayment(onDone: () -> Unit) = viewModelScope.launch {
+        if (!hasActiveOrder) { onDone(); return@launch }
         working = true
         try {
-            ordersRepo.markPaid(id, tableId)
+            ordersRepo.markTablePaymentPending(tableId)
             onDone()
         } catch (e: Exception) {
             error = e.message
@@ -162,7 +169,7 @@ class OrderViewModel(
     }
 
     fun transfer(toTableId: String, onDone: () -> Unit) = viewModelScope.launch {
-        val id = orderId ?: return@launch
+        val id = activeOrderId ?: return@launch
         working = true
         try {
             ordersRepo.transfer(id, toTableId)
@@ -173,4 +180,7 @@ class OrderViewModel(
             working = false
         }
     }
+
+    fun itemsForOrder(orderId: String): List<OrderItem> =
+        existing.filter { it.orderId == orderId }
 }

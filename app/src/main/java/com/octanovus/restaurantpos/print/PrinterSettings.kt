@@ -3,8 +3,6 @@ package com.octanovus.restaurantpos.print
 import android.content.Context
 import androidx.core.content.edit
 
-enum class PrinterType { BLUETOOTH, TCP, USB }
-
 /**
  * SharedPreferences-backed printer settings. Call init() once from Application.onCreate().
  * 58 mm paper -> width 48f, 32 chars/line. 80 mm paper -> width 72f, 48 chars/line.
